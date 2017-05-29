@@ -3,6 +3,7 @@
 var pm2 = require('pm2');
 var pmx = require('pmx');
 var request = require('request');
+var moment = require('moment');
 
 
 // Get the configuration from PM2
@@ -32,34 +33,38 @@ function sendTelegram(message) {
     var event = message.event;
     var description = message.description;
     var timestamp = message.timestamp;
-    
+    var dateNow = moment();
+
 
     // If a Telegram URL is not set, we do not want to continue and nofify the user that it needs to be set. URL must be formatted as ' https://api.telegram.org/bot<TOKEN>/sendMessage'
     if (!conf.telegram_url) return console.error("There is no telegram URL set, please set the telegram URL: 'pm2 set pm2-telegram-notify:telegram_url https://telegram_url'");
-   
-    console.log(messages.length) 
- 
+    console.log(dateNow.format("YYYY-MM-DD HH:mm:sss Z:") + ' ' + "Events in queue: " + messages.length)
+
+if (conf.log_err /*&& !(conf.log || conf.error || conf.kill || conf.exception)*/) { 
+
     // checks for event name and timestamps
-  if ((messages.length != 0) && (event =='log' && messages[0].event == 'error')  && (timestamp <= messages[0].timestamp)) {
-      
+    if ((messages.length != 0) && (event === 'log' && messages[0].event === 'error')  && (timestamp <= messages[0].timestamp)) {
+
     //Check for description's content
-    if (description.length > 30) {
+    if (messages[0].description.length > 30) {
+
     //Text for sending to telegram, must be <string>
-     var length = 2000;
-     var cutDesc = description.substring(0, length);
-     var cutPrevDesc = messages[0].description.substring(0, length);
-     var text  = (name + ' - ' + '*' + messages[0].event + '*' +  ' - ' + cutDesc + '\n ' + '*' + cutPrevDesc + '*');
-     
-        
+     var length1 = 1000;
+     var length2 = 3000;
+     var cutDesc = description.substring(0, length1);
+     var cutPrevDesc = messages[0].description.substring(0, length2);
+     var text  = (name + ' - ' +  messages[0].event + ' - ' + cutDesc + '\n\n ' +  cutPrevDesc);
+
+
       // Options for the post request
      var options = {
           method: 'post',
           headers: {'content-type' : 'application/x-www-form-urlencoded'},
-          body: "chat_id="+conf.chat_id+"&text="+text + '&parse_mode=markdown',
+          body: "chat_id="+conf.chat_id+"&text="+text,
           json: true,
           url: conf.telegram_url
      };
-        
+
 
      // Finally, make the post request to the Telegram
      request(options, function(err, res, body) {
@@ -67,8 +72,34 @@ function sendTelegram(message) {
          console.log(body)
      });
     }
-  } 
+  }
 }
+
+      if (conf.log || conf.error || conf.kill || conf.exception) {
+          var name = message.name; 
+          var event = message.event;
+          var description = message.description;
+          var text  = (name + ' - ' +  event + ' - ' + description);
+     
+
+     var options = {
+          method: 'post',
+          headers: {'content-type' : 'application/x-www-form-urlencoded'},
+          body: "chat_id="+conf.chat_id+"&text="+text,
+          json: true,
+          url: conf.telegram_url
+     };
+
+
+     // Finally, make the post request to the Telegram
+     request(options, function(err, res, body) {
+         if (err) return console.error(err);
+         console.log(body)
+     });
+    }
+}
+
+
 
 // Function to get the next buffer of messages (buffer length = 1s)
 function bufferMessage() {
@@ -81,7 +112,7 @@ function bufferMessage() {
     // continue shifting elements off the queue while they are the same event and timestamp so they can be buffered together into a single request
     while (messages.length
         && (messages[0].timestamp >= nextMessage.timestamp && messages[0].timestamp < (nextMessage.timestamp  + conf.buffer_seconds))
-        && messages[0].event != nextMessage.event) {
+        && messages[0].event === nextMessage.event) {
 
         // append description to our buffer and shift the message off the queue and discard it
         nextMessage.buffer.push(messages[0].description);
@@ -134,8 +165,36 @@ function processQueue() {
 // Start listening on the PM2 BUS
 pm2.launchBus(function(err, bus) {
 
-    
-    // Listen for process logs
+
+    // Listen for logs and errors in same time
+    if(conf.log_err) {
+
+        bus.on('log:err', function(data) {
+            if (data.process.name !== 'pm2-telegram-notify') {
+                messages.push({
+                    name: data.process.name,
+                    event: 'error',
+                    description: data.data ,
+                    timestamp: Math.floor(Date.now() / 9999),
+                });
+        }
+
+        });
+
+        bus.on('log:out', function(data) {
+            if (data.process.name !== 'pm2-telegram-notify') {
+                messages.push({
+                    name: data.process.name,
+                    event: 'log',
+                    description: data.data,
+                    timestamp: Math.floor(Date.now() / 10000),
+                });
+            }
+        });
+
+    }
+
+
     if (conf.log) {
         bus.on('log:out', function(data) {
             if (data.process.name !== 'pm2-telegram-notify') {
@@ -143,7 +202,7 @@ pm2.launchBus(function(err, bus) {
                     name: data.process.name,
                     event: 'log',
                     description: data.data,
-                    timestamp: Math.floor(Date.now() / 100000),
+                    timestamp: Math.floor(Date.now() / 10000),
                 });
             }
         });
@@ -157,7 +216,7 @@ pm2.launchBus(function(err, bus) {
                     name: data.process.name,
                     event: 'error',
                     description: data.data,
-                    timestamp: Math.floor(Date.now() / 99999),
+                    timestamp: Math.floor(Date.now() / 9999),
                 });
             }
         });
@@ -207,3 +266,4 @@ pm2.launchBus(function(err, bus) {
     processQueue();
 
 });
+

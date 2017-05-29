@@ -30,13 +30,15 @@
   "dependencies": {
     "pm2": "^2.4.5",
     "pmx": "^1.2.0",
-    "request": "^2.81.0"
+    "request": "^2.81.0",
+    "moment": "^2.18.1"
   },
   "config": {
+    "log_err": true,  
     "chat_id": null,
     "telegram_url": null,
     "log": false,
-    "error": true,
+    "error": false,
     "kill": true,
     "exception": true,
     "restart": false,
@@ -49,6 +51,6 @@
     "online": false,
     "buffer": true,
     "buffer_seconds": 1,
-    "queue_max": 10
+    "queue_max": 100
   }
 }
