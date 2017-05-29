@@ -4,11 +4,11 @@ This is a PM2 Module is started as fork from mattpker/pm2-slack
 
 ## What's new
 
-Now module listen ONLY to 'log' and 'error' events at the same time. If error occured- it will be  send to telegram with log event, that cuse error. You must enable listening to  log bus by following command:
+Now module can listen  to 'log' and 'error' events at the same time. If error occured- it will be  send to telegram with log event, that cause error. You must enable listening to  log and error  bus by following command:
 
 
 ```
-pm2 set pm2-telegram-notify:log true
+pm2 set pm2-telegram-notify:log_err true
 ```
 
 ## Install
@@ -41,8 +41,9 @@ pm2 set pm2-telegram-notify:chat_id <YOUR CHAT_ID>
 
 The following events can be subscribed to:
 
+- log_err - Log and error events in the same time only. Default: true 
 - log - All standard out logs from your processes. Default: false
-- error - All error logs from your processes. Default: true
+- error - All error logs from your processes. Default: false
 - kill - Event fired when PM2 is killed. Default: true
 - exception - Any exceptions from your processes. Default: true
 - restart - Event fired when a process is restarted. Default: false
