@@ -39,8 +39,32 @@ function sendTelegram(message) {
     // If a Telegram URL is not set, we do not want to continue and nofify the user that it needs to be set. URL must be formatted as ' https://api.telegram.org/bot<TOKEN>/sendMessage'
     if (!conf.telegram_url) return console.error("There is no telegram URL set, please set the telegram URL: 'pm2 set pm2-telegram-notify:telegram_url https://telegram_url'");
     console.log(dateNow.format("YYYY-MM-DD HH:mm:sss Z:") + ' ' + "Events in queue: " + messages.length)
+    
+    
+    
+    if (!conf.log_err) {
+          var name = message.name; 
+          var event = message.event;
+          var description = message.description;
+          var text  = (name + ' - ' +  event + ' - ' + description);
+     
 
-if (conf.log_err /*&& !(conf.log || conf.error || conf.kill || conf.exception)*/) { 
+     var options = {
+          method: 'post',
+          headers: {'content-type' : 'application/x-www-form-urlencoded'},
+          body: "chat_id="+conf.chat_id+"&text="+text,
+          json: true,
+          url: conf.telegram_url
+     };
+
+
+     // Finally, make the post request to the Telegram
+     request(options, function(err, res, body) {
+         if (err) return console.error(err);
+         console.log(body)
+     });
+
+    }  else  if (conf.log_err /*&& !(conf.log || conf.error || conf.kill || conf.exception)*/) {
 
     // checks for event name and timestamps
     if ((messages.length != 0) && (event === 'log' && messages[0].event === 'error')  && (timestamp <= messages[0].timestamp)) {
@@ -75,28 +99,6 @@ if (conf.log_err /*&& !(conf.log || conf.error || conf.kill || conf.exception)*/
   }
 }
 
-      if (conf.log || conf.error || conf.kill || conf.exception) {
-          var name = message.name; 
-          var event = message.event;
-          var description = message.description;
-          var text  = (name + ' - ' +  event + ' - ' + description);
-     
-
-     var options = {
-          method: 'post',
-          headers: {'content-type' : 'application/x-www-form-urlencoded'},
-          body: "chat_id="+conf.chat_id+"&text="+text,
-          json: true,
-          url: conf.telegram_url
-     };
-
-
-     // Finally, make the post request to the Telegram
-     request(options, function(err, res, body) {
-         if (err) return console.error(err);
-         console.log(body)
-     });
-    }
 }
 
 
@@ -266,4 +268,5 @@ pm2.launchBus(function(err, bus) {
     processQueue();
 
 });
+
 
